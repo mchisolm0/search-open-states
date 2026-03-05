@@ -6,6 +6,7 @@ import { internal } from "./_generated/api";
 import { action } from "./_generated/server";
 
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const FETCH_TIMEOUT_MS = 5_000;
 
 type OpenWeatherZipResponse = {
   zip: string;
@@ -75,6 +76,15 @@ type LookupResponse = LookupData & {
   source: "cache" | "live";
 };
 
+function isAbortError(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "name" in error &&
+    (error as { name?: string }).name === "AbortError"
+  );
+}
+
 function getEnv(name: string) {
   const processEnv = (globalThis as {
     process?: { env?: Record<string, string | undefined> };
@@ -111,7 +121,21 @@ async function resolveZipToLatLng(zip5: string, countryCode: string) {
   url.searchParams.set("zip", `${zip5},${countryCode}`);
   url.searchParams.set("appid", apiKey);
 
-  const response = await fetch(url);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(url, { signal: controller.signal });
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new Error("OpenWeather request timed out.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
   if (!response.ok) {
     if (response.status === 404) {
       throw new Error("That ZIP code could not be found.");
@@ -149,9 +173,24 @@ async function fetchOpenStatesPeople(lat: number, lng: number) {
   url.searchParams.set("lng", String(lng));
   url.searchParams.set("include", "offices");
 
-  const response = await fetch(url, {
-    headers: { "X-API-KEY": apiKey },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: { "X-API-KEY": apiKey },
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (isAbortError(error)) {
+      throw new Error("OpenStates request timed out.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
   if (!response.ok) {
     throw new Error(await parseErrorMessage(response));
   }
