@@ -30,19 +30,65 @@ type LookupResult = {
   city: string | null;
   lat: number;
   lng: number;
-  fetchedAt: number;
+  fetchedAt: number | string;
   source: "cache" | "live";
   representatives: Representative[];
 };
+
+function isNullableString(value: unknown): value is string | null {
+  return typeof value === "string" || value === null;
+}
+
+function isOffice(value: unknown): value is Office {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    isNullableString(record.name) &&
+    isNullableString(record.classification) &&
+    isNullableString(record.voice) &&
+    isNullableString(record.fax) &&
+    isNullableString(record.address)
+  );
+}
+
+function isRepresentative(value: unknown): value is Representative {
+  if (typeof value !== "object" || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record.id === "string" &&
+    typeof record.name === "string" &&
+    isNullableString(record.party) &&
+    isNullableString(record.roleTitle) &&
+    isNullableString(record.district) &&
+    isNullableString(record.jurisdiction) &&
+    isNullableString(record.imageUrl) &&
+    isNullableString(record.openstatesUrl) &&
+    isNullableString(record.primaryEmailOrContactUrl) &&
+    Array.isArray(record.offices) &&
+    record.offices.every(isOffice)
+  );
+}
+
+function isFetchedAt(value: unknown): value is number | string {
+  if (typeof value === "number") return Number.isFinite(value);
+  if (typeof value === "string") {
+    return Number.isFinite(Date.parse(value));
+  }
+  return false;
+}
 
 function isLookupResult(value: unknown): value is LookupResult {
   if (typeof value !== "object" || value === null) return false;
   const record = value as Record<string, unknown>;
   return (
     typeof record.zip5 === "string" &&
+    isNullableString(record.city) &&
     typeof record.lat === "number" &&
     typeof record.lng === "number" &&
-    Array.isArray(record.representatives)
+    (record.source === "cache" || record.source === "live") &&
+    isFetchedAt(record.fetchedAt) &&
+    Array.isArray(record.representatives) &&
+    record.representatives.every(isRepresentative)
   );
 }
 
