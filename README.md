@@ -1,75 +1,66 @@
-# React + TypeScript + Vite
+# ZIP Representative Lookup (Vite + React + Convex + OpenStates)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This app lets a visitor enter a US ZIP code and returns representatives plus office contact details. (vibe-coded with Codex)
 
-Currently, two official plugins are available:
+Flow:
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+1. ZIP -> OpenWeather geocoding (`/geo/1.0/zip`) for `lat/lng`
+2. `lat/lng` -> OpenStates `people.geo?include=offices`
+3. Convex caches results by ZIP + country for 24 hours
 
-## React Compiler
+## Requirements
 
-The React Compiler is enabled on this template. See [this documentation](https://react.dev/learn/react-compiler) for more information.
+- Node 20+
+- pnpm
+- Convex project (already configured in `.env.local`)
+- API keys:
+  - `OPENWEATHER_API_KEY`
+  - `OPENSTATES_API_KEY`
 
-Note: This will impact Vite dev & build performances.
+## Local Setup
 
-## Expanding the ESLint configuration
+1. Install dependencies:
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+pnpm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+2. Put local variables in `.env.local`:
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+VITE_CONVEX_URL=...
+CONVEX_DEPLOYMENT=...
+OPENWEATHER_API_KEY=...
+OPENSTATES_API_KEY=...
 ```
+
+3. Push Convex functions/schema and generate types:
+
+```bash
+npx convex dev --once
+```
+
+4. Make sure the two server-side keys exist in Convex env:
+
+```bash
+npx convex env set OPENWEATHER_API_KEY "your_key"
+npx convex env set OPENSTATES_API_KEY "your_key"
+```
+
+5. Run the frontend:
+
+```bash
+pnpm dev
+```
+
+## Build
+
+```bash
+pnpm build
+```
+
+## Notes
+
+- Only US ZIP lookup is enabled right now. (Because we currently only have US states in OpenStates)
+- ZIP cache TTL is 24 hours (`convex/representatives.ts`).
+- Contact details come from OpenStates `email` and `offices[*].voice/fax/address`.
