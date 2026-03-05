@@ -229,7 +229,7 @@ export const lookupByZip = action({
 
     const data: LookupData = {
       zip5,
-      countryCode: geo.countryCode,
+      countryCode,
       city: geo.city,
       lat: geo.lat,
       lng: geo.lng,
@@ -239,7 +239,7 @@ export const lookupByZip = action({
 
     await ctx.runMutation(internal.cache.upsertByZip, {
       zip5,
-      countryCode: geo.countryCode,
+      countryCode,
       data,
       fetchedAt: now,
       expiresAt: now + CACHE_TTL_MS,
