@@ -101,7 +101,7 @@ function contactLink(contact: string) {
 
 function formatPhone(phone: string) {
   const digits = phone.replace(/[^\d]/g, "");
-  return digits.length > 0 ? `tel:${digits}` : "";
+  return digits.length > 0 ? `tel:${digits}` : null;
 }
 
 function App() {
@@ -235,24 +235,27 @@ function App() {
                         <p>No office records available.</p>
                       ) : (
                         <ul className="offices">
-                          {rep.offices.map((office, idx) => (
-                            <li key={`${rep.id}-office-${idx}`}>
-                              <p>
-                                <strong>{office.name ?? "Office"}</strong>
-                                {office.classification
-                                  ? ` (${office.classification})`
-                                  : ""}
-                              </p>
-                              {office.voice ? (
+                          {rep.offices.map((office, idx) => {
+                            const tel = office.voice ? formatPhone(office.voice) : null;
+                            return (
+                              <li key={`${rep.id}-office-${idx}`}>
                                 <p>
-                                  Phone:{" "}
-                                  <a href={formatPhone(office.voice)}>{office.voice}</a>
+                                  <strong>{office.name ?? "Office"}</strong>
+                                  {office.classification
+                                    ? ` (${office.classification})`
+                                    : ""}
                                 </p>
-                              ) : null}
-                              {office.fax ? <p>Fax: {office.fax}</p> : null}
-                              {office.address ? <p>{office.address}</p> : null}
-                            </li>
-                          ))}
+                                {office.voice ? (
+                                  <p>
+                                    Phone:{" "}
+                                    {tel ? <a href={tel}>{office.voice}</a> : office.voice}
+                                  </p>
+                                ) : null}
+                                {office.fax ? <p>Fax: {office.fax}</p> : null}
+                                {office.address ? <p>{office.address}</p> : null}
+                              </li>
+                            );
+                          })}
                         </ul>
                       )}
                     </div>
