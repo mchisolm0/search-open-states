@@ -1,5 +1,5 @@
 import { useAction } from "convex/react";
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useState } from "react";
 
 import { api } from "../convex/_generated/api";
 import "./App.css";
@@ -143,21 +143,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const representativeCount = result?.representatives.length ?? 0;
-  const officeCount = useMemo(() => {
-    if (!result) return 0;
-    return result.representatives.reduce((count, rep) => count + rep.offices.length, 0);
-  }, [result]);
-  const directContactCount = useMemo(() => {
-    if (!result) return 0;
-    return result.representatives.filter((rep) => Boolean(rep.primaryEmailOrContactUrl)).length;
-  }, [result]);
-  const officePhoneCount = useMemo(() => {
-    if (!result) return 0;
-    return result.representatives.reduce((count, rep) => {
-      return count + rep.offices.filter((office) => Boolean(office.voice)).length;
-    }, 0);
-  }, [result]);
+  const lawmakerCount = result?.representatives.length ?? 0;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -184,29 +170,19 @@ function App() {
         <header className="hero">
           <div className="heroTop">
             <div className="titleBlock">
-              <p className="eyebrow">OpenStates + Convex Civic Lens</p>
-              <h1>ZIP Representative Lookup</h1>
-              <p className="heroNote">Fast directory for lawmakers, offices, and contact channels.</p>
-
-              {result ? (
-                <dl className="heroStats" aria-label="Lookup summary">
-                  <div>
-                    <dt>Representatives</dt>
-                    <dd>{representativeCount}</dd>
-                  </div>
-                  <div>
-                    <dt>Office records</dt>
-                    <dd>{officeCount}</dd>
-                  </div>
-                  <div>
-                    <dt>Direct contacts</dt>
-                    <dd>{directContactCount}</dd>
-                  </div>
-                </dl>
-              ) : null}
+              <p className="eyebrow">OpenStates + Convex</p>
+              <h1>ZIP Lawmaker Lookup</h1>
+              <p className="heroNote">
+                Quickly identify who represents a ZIP code and where to reach
+                each office.
+              </p>
             </div>
 
-            <form className="lookupForm" onSubmit={onSubmit} aria-busy={isLoading}>
+            <form
+              className="lookupForm"
+              onSubmit={onSubmit}
+              aria-busy={isLoading}
+            >
               <label htmlFor="zip">US ZIP code</label>
               <div className="lookupRow">
                 <input
@@ -238,31 +214,36 @@ function App() {
 
         {!error && !result ? (
           <p className="statusCard statusIdle">
-            Enter a ZIP to load representative cards and office contact details.
+            Enter a ZIP to load lawmaker cards and office contact details.
           </p>
         ) : null}
 
         {!error && result ? (
           <section className="results" aria-live="polite">
             <header className="resultsHeader">
-              <h2>
-                {result.city ? `${result.city}, ` : "ZIP "}
-                {result.zip5}
-              </h2>
+              <div className="resultsTitle">
+                <p className="resultsKicker">Lookup result</p>
+                <h2>
+                  {result.city ? `${result.city}, ` : "ZIP "}
+                  {result.zip5}
+                </h2>
+              </div>
               <div className="metaTokens">
-                <span className="token">Updated {formatUpdatedAt(result.fetchedAt)}</span>
-                <span className="token">
-                  {directContactCount}/{representativeCount} with direct contacts
+                <span className="token token-count">
+                  {lawmakerCount} lawmakers
                 </span>
                 <span className="token">
-                  {officePhoneCount}/{officeCount} offices with phone
+                  Updated {formatUpdatedAt(result.fetchedAt)}
+                </span>
+                <span className={`token token-${result.source}`}>
+                  Source: {result.source === "cache" ? "Cached" : "Live"}
                 </span>
               </div>
             </header>
 
             {result.representatives.length === 0 ? (
               <p className="statusCard statusEmpty">
-                No representative records were returned for this ZIP.
+                No lawmaker records were returned for this ZIP.
               </p>
             ) : (
               <ul className="repGrid">
@@ -270,7 +251,10 @@ function App() {
                   <li key={rep.id} className="repCard">
                     <header className="repHeader">
                       {rep.imageUrl ? (
-                        <img src={rep.imageUrl} alt={`Portrait of ${rep.name}`} />
+                        <img
+                          src={rep.imageUrl}
+                          alt={`Portrait of ${rep.name}`}
+                        />
                       ) : (
                         <div className="imageFallback" aria-hidden="true">
                           {initials(rep.name)}
@@ -280,41 +264,55 @@ function App() {
                       <div className="identityBlock">
                         <h3>{rep.name}</h3>
                         <p>
-                          {rep.roleTitle ?? "Representative"}
+                          {rep.roleTitle ?? "Lawmaker"}
                           {rep.district ? ` · ${rep.district}` : ""}
                         </p>
                         {rep.jurisdiction ? <p>{rep.jurisdiction}</p> : null}
-                        <span className={`partyBadge party-${partyTone(rep.party)}`}>
+                        <span
+                          className={`partyBadge party-${partyTone(rep.party)}`}
+                        >
                           {partyLabel(rep.party)}
                         </span>
                       </div>
                     </header>
 
                     <section className="contactBlock">
-                      <h4>Primary contact</h4>
-                      {rep.primaryEmailOrContactUrl ? (
-                        <a
-                          href={contactLink(rep.primaryEmailOrContactUrl)}
-                          target={
-                            rep.primaryEmailOrContactUrl.startsWith("http") ? "_blank" : undefined
-                          }
-                          rel={
-                            rep.primaryEmailOrContactUrl.startsWith("http")
-                              ? "noreferrer"
-                              : undefined
-                          }
-                        >
-                          {rep.primaryEmailOrContactUrl}
-                        </a>
-                      ) : (
-                        <p>No direct contact available.</p>
-                      )}
+                      <h4>Contact</h4>
+                      <div className="contactLinks">
+                        {rep.primaryEmailOrContactUrl ? (
+                          <a
+                            className="primaryAction"
+                            href={contactLink(rep.primaryEmailOrContactUrl)}
+                            target={
+                              rep.primaryEmailOrContactUrl.startsWith("http")
+                                ? "_blank"
+                                : undefined
+                            }
+                            rel={
+                              rep.primaryEmailOrContactUrl.startsWith("http")
+                                ? "noreferrer"
+                                : undefined
+                            }
+                          >
+                            {rep.primaryEmailOrContactUrl}
+                          </a>
+                        ) : (
+                          <p className="contactEmpty">
+                            No direct contact available.
+                          </p>
+                        )}
 
-                      {rep.openstatesUrl ? (
-                        <a href={rep.openstatesUrl} target="_blank" rel="noreferrer">
-                          OpenStates profile
-                        </a>
-                      ) : null}
+                        {rep.openstatesUrl ? (
+                          <a
+                            className="secondaryAction"
+                            href={rep.openstatesUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            OpenStates profile
+                          </a>
+                        ) : null}
+                      </div>
                     </section>
 
                     <section className="officeBlock">
@@ -324,20 +322,31 @@ function App() {
                       ) : (
                         <ul className="offices">
                           {rep.offices.map((office, idx) => {
-                            const tel = office.voice ? formatPhone(office.voice) : null;
+                            const tel = office.voice
+                              ? formatPhone(office.voice)
+                              : null;
                             return (
                               <li key={`${rep.id}-office-${idx}`}>
                                 <p>
                                   <strong>{office.name ?? "Office"}</strong>
-                                  {office.classification ? ` (${office.classification})` : ""}
+                                  {office.classification
+                                    ? ` (${office.classification})`
+                                    : ""}
                                 </p>
                                 {office.voice ? (
                                   <p>
-                                    Phone: {tel ? <a href={tel}>{office.voice}</a> : office.voice}
+                                    Phone:{" "}
+                                    {tel ? (
+                                      <a href={tel}>{office.voice}</a>
+                                    ) : (
+                                      office.voice
+                                    )}
                                   </p>
                                 ) : null}
                                 {office.fax ? <p>Fax: {office.fax}</p> : null}
-                                {office.address ? <p>{office.address}</p> : null}
+                                {office.address ? (
+                                  <p>{office.address}</p>
+                                ) : null}
                               </li>
                             );
                           })}
