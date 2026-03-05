@@ -119,6 +119,7 @@
   border-radius: 14px;
   background: #fff;
   padding: 0.95rem;
+  min-width: 0;
 }
 
 .repHeader {
@@ -175,9 +176,10 @@
 }
 
 .contactBlock a {
-  display: inline-block;
+  display: block;
+  max-width: 100%;
   margin-top: 0.4rem;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
 .offices {
