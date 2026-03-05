@@ -2,7 +2,7 @@
 
 This app lets a visitor enter a US ZIP code and returns representatives plus office contact details. (vibe-coded with Codex)
 
-The choice of OpenStates stems from the repository of information about US lawmakers seems to be actively maintained (https://github.com/openstates/people). In my testing, it provides up-to-date information about lawmakers and their offices.
+The choice of OpenStates as a source of information about US lawmakers is the repository seems to be actively maintained (https://github.com/openstates/people). In my testing, it provides up-to-date information about lawmakers and their offices.
 
 Flow:
 
