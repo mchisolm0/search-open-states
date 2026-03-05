@@ -35,6 +35,8 @@ type LookupResult = {
   representatives: Representative[];
 };
 
+type PartyTone = "dem" | "rep" | "ind" | "other";
+
 function isNullableString(value: unknown): value is string | null {
   return typeof value === "string" || value === null;
 }
@@ -104,6 +106,36 @@ function formatPhone(phone: string) {
   return digits.length > 0 ? `tel:${digits}` : null;
 }
 
+function formatUpdatedAt(value: number | string) {
+  return new Date(value).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function partyTone(party: string | null): PartyTone {
+  if (!party) return "other";
+  const normalized = party.toLowerCase();
+  if (normalized.includes("dem")) return "dem";
+  if (normalized.includes("rep")) return "rep";
+  if (normalized.includes("ind")) return "ind";
+  return "other";
+}
+
+function partyLabel(party: string | null) {
+  return party ?? "Unknown affiliation";
+}
+
+function initials(name: string) {
+  const parts = name.split(" ").filter(Boolean);
+  if (parts.length < 2) {
+    return (parts[0]?.slice(0, 2) ?? "?").toUpperCase();
+  }
+  return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase();
+}
+
 function App() {
   const lookupByZip = useAction(api.representatives.lookupByZip);
   const [zip, setZip] = useState("");
@@ -111,13 +143,15 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  const lawmakerCount = result?.representatives.length ?? 0;
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await lookupByZip({ zip });
+      const response = await lookupByZip({ zip: zip.trim() });
       if (!isLookupResult(response)) {
         throw new Error("Received unexpected data shape from the server.");
       }
@@ -131,112 +165,166 @@ function App() {
   }
 
   return (
-    <main className="page">
-      <section className="panel">
+    <main className="civicPage">
+      <section className="civicShell">
         <header className="hero">
-          <p className="eyebrow">OpenStates + Convex</p>
-          <h1>Find Your Representatives</h1>
-          <p className="intro">
-            Enter a US ZIP code to find legislators and their contact channels.
-          </p>
-        </header>
-
-        <form className="searchForm" onSubmit={onSubmit}>
-          <label htmlFor="zip">ZIP code</label>
-          <div className="searchRow">
-            <input
-              id="zip"
-              name="zip"
-              type="text"
-              inputMode="numeric"
-              placeholder="60612"
-              value={zip}
-              onChange={(event) => setZip(event.target.value)}
-              maxLength={10}
-              required
-            />
-            <button type="submit" disabled={isLoading}>
-              {isLoading ? "Searching..." : "Search"}
-            </button>
-          </div>
-        </form>
-
-        {error ? <p className="status error">{error}</p> : null}
-
-        {!error && result ? (
-          <section className="results">
-            <div className="resultMeta">
-              <p>
-                ZIP {result.zip5}
-                {result.city ? ` (${result.city})` : ""}
-              </p>
-              <p>
-                Source: {result.source} | Updated{" "}
-                {new Date(result.fetchedAt).toLocaleString()}
+          <div className="heroTop">
+            <div className="titleBlock">
+              <p className="eyebrow">OpenStates + Convex</p>
+              <h1>ZIP Lawmaker Lookup</h1>
+              <p className="heroNote">
+                Quickly identify who represents a ZIP code and where to reach
+                each office.
               </p>
             </div>
 
+            <form
+              className="lookupForm"
+              onSubmit={onSubmit}
+              aria-busy={isLoading}
+            >
+              <label htmlFor="zip">US ZIP code</label>
+              <div className="lookupRow">
+                <input
+                  id="zip"
+                  name="zip"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="60612"
+                  value={zip}
+                  onChange={(event) => setZip(event.target.value)}
+                  autoComplete="postal-code"
+                  maxLength={10}
+                  required
+                />
+                <button type="submit" disabled={isLoading}>
+                  {isLoading ? "Scanning districts..." : "Search lawmakers"}
+                </button>
+              </div>
+              <p className="helperText">5-digit ZIP or ZIP+4.</p>
+            </form>
+          </div>
+        </header>
+
+        {error ? (
+          <p className="statusCard statusError" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        {!error && !result ? (
+          <p className="statusCard statusIdle">
+            Enter a ZIP to load lawmaker cards and office contact details.
+          </p>
+        ) : null}
+
+        {!error && result ? (
+          <section className="results" aria-live="polite">
+            <header className="resultsHeader">
+              <div className="resultsTitle">
+                <p className="resultsKicker">Lookup result</p>
+                <h2>
+                  {result.city ? `${result.city}, ` : "ZIP "}
+                  {result.zip5}
+                </h2>
+              </div>
+              <div className="metaTokens">
+                <span className="token token-count">
+                  {lawmakerCount} lawmakers
+                </span>
+                <span className="token">
+                  Updated {formatUpdatedAt(result.fetchedAt)}
+                </span>
+                <span className={`token token-${result.source}`}>
+                  Source: {result.source === "cache" ? "Cached" : "Live"}
+                </span>
+              </div>
+            </header>
+
             {result.representatives.length === 0 ? (
-              <p className="status">No representatives found for this ZIP.</p>
+              <p className="statusCard statusEmpty">
+                No lawmaker records were returned for this ZIP.
+              </p>
             ) : (
               <ul className="repGrid">
                 {result.representatives.map((rep) => (
                   <li key={rep.id} className="repCard">
-                    <div className="repHeader">
+                    <header className="repHeader">
                       {rep.imageUrl ? (
-                        <img src={rep.imageUrl} alt={`Portrait of ${rep.name}`} />
+                        <img
+                          src={rep.imageUrl}
+                          alt={`Portrait of ${rep.name}`}
+                        />
                       ) : (
                         <div className="imageFallback" aria-hidden="true">
-                          {rep.name[0] ?? "?"}
+                          {initials(rep.name)}
                         </div>
                       )}
-                      <div>
-                        <h2>{rep.name}</h2>
+
+                      <div className="identityBlock">
+                        <h3>{rep.name}</h3>
                         <p>
-                          {rep.roleTitle ?? "Representative"}
-                          {rep.district ? `, ${rep.district}` : ""}
+                          {rep.roleTitle ?? "Lawmaker"}
+                          {rep.district ? ` · ${rep.district}` : ""}
                         </p>
-                        <p>{rep.party ?? "Unknown party"}</p>
                         {rep.jurisdiction ? <p>{rep.jurisdiction}</p> : null}
-                      </div>
-                    </div>
-
-                    <div className="contactBlock">
-                      <h3>Contact</h3>
-                      {rep.primaryEmailOrContactUrl ? (
-                        <a
-                          href={contactLink(rep.primaryEmailOrContactUrl)}
-                          target={
-                            rep.primaryEmailOrContactUrl.startsWith("http")
-                              ? "_blank"
-                              : undefined
-                          }
-                          rel={
-                            rep.primaryEmailOrContactUrl.startsWith("http")
-                              ? "noreferrer"
-                              : undefined
-                          }
+                        <span
+                          className={`partyBadge party-${partyTone(rep.party)}`}
                         >
-                          {rep.primaryEmailOrContactUrl}
-                        </a>
-                      ) : (
-                        <p>No direct email available.</p>
-                      )}
-                      {rep.openstatesUrl ? (
-                        <a href={rep.openstatesUrl} target="_blank" rel="noreferrer">
-                          OpenStates profile
-                        </a>
-                      ) : null}
-                    </div>
+                          {partyLabel(rep.party)}
+                        </span>
+                      </div>
+                    </header>
 
-                    <div className="officeBlock">
-                      <h3>Offices</h3>
+                    <section className="contactBlock">
+                      <h4>Contact</h4>
+                      <div className="contactLinks">
+                        {rep.primaryEmailOrContactUrl ? (
+                          <a
+                            className="primaryAction"
+                            href={contactLink(rep.primaryEmailOrContactUrl)}
+                            target={
+                              rep.primaryEmailOrContactUrl.startsWith("http")
+                                ? "_blank"
+                                : undefined
+                            }
+                            rel={
+                              rep.primaryEmailOrContactUrl.startsWith("http")
+                                ? "noreferrer"
+                                : undefined
+                            }
+                          >
+                            {rep.primaryEmailOrContactUrl}
+                          </a>
+                        ) : (
+                          <p className="contactEmpty">
+                            No direct contact available.
+                          </p>
+                        )}
+
+                        {rep.openstatesUrl ? (
+                          <a
+                            className="secondaryAction"
+                            href={rep.openstatesUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            OpenStates profile
+                          </a>
+                        ) : null}
+                      </div>
+                    </section>
+
+                    <section className="officeBlock">
+                      <h4>Offices</h4>
                       {rep.offices.length === 0 ? (
                         <p>No office records available.</p>
                       ) : (
                         <ul className="offices">
                           {rep.offices.map((office, idx) => {
-                            const tel = office.voice ? formatPhone(office.voice) : null;
+                            const tel = office.voice
+                              ? formatPhone(office.voice)
+                              : null;
                             return (
                               <li key={`${rep.id}-office-${idx}`}>
                                 <p>
@@ -248,27 +336,29 @@ function App() {
                                 {office.voice ? (
                                   <p>
                                     Phone:{" "}
-                                    {tel ? <a href={tel}>{office.voice}</a> : office.voice}
+                                    {tel ? (
+                                      <a href={tel}>{office.voice}</a>
+                                    ) : (
+                                      office.voice
+                                    )}
                                   </p>
                                 ) : null}
                                 {office.fax ? <p>Fax: {office.fax}</p> : null}
-                                {office.address ? <p>{office.address}</p> : null}
+                                {office.address ? (
+                                  <p>{office.address}</p>
+                                ) : null}
                               </li>
                             );
                           })}
                         </ul>
                       )}
-                    </div>
+                    </section>
                   </li>
                 ))}
               </ul>
             )}
           </section>
-        ) : (
-          <p className="status">
-            Search by ZIP to load representatives and office contact details.
-          </p>
-        )}
+        ) : null}
       </section>
     </main>
   );
