@@ -19,7 +19,7 @@
 
 .hero h1 {
   margin: 0;
-  font-family: "Fraunces", Georgia, serif;
+  font-family: Fraunces, Georgia, serif;
   font-size: clamp(2rem, 2.8vw, 2.8rem);
   line-height: 1.1;
 }
@@ -146,7 +146,7 @@
 
 .repHeader h2 {
   margin: 0;
-  font-family: "Fraunces", Georgia, serif;
+  font-family: Fraunces, Georgia, serif;
   font-size: 1.2rem;
 }
 
@@ -177,7 +177,7 @@
 .contactBlock a {
   display: inline-block;
   margin-top: 0.4rem;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .offices {
